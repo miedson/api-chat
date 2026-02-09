@@ -1,3 +1,3 @@
-export interface ChannelProvider {
-  connect(connection: unknown): Promise<unknown>
+export interface ChannelProvider<T = unknown, K = unknown> {
+  connect(connection: T): Promise<K>
 }
