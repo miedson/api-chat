@@ -1,4 +1,5 @@
 import type { UseCase } from '@/app/common/interfaces/usecase'
+import type { OrganizationRepository } from '@/app/organization/repositories/organization.repository'
 import type { ChannelProvider } from '../interfaces/channel.provider'
 import {
   type CreateWhatsAppChannelDto,
@@ -18,15 +19,29 @@ export class CreateWhatsAppChannel
       CreateInstanceEvolutionApiRequest,
       CreateInstanceEvolutionApiResponse
     >,
+    private readonly organizationRepository: OrganizationRepository,
   ) {}
 
   async execute(
     input: CreateWhatsAppChannelDto,
   ): Promise<CreateInstanceEvolutionApiResponse> {
     const data = createWhatsAppChannelSchema.parse(input)
+
+    const organization = await this.organizationRepository.findByUserUUID(
+      input.userUUID,
+    )
+    if (!organization) {
+      throw new Error('organization nor found')
+    }
+
+    const instanceName =
+      data.name ??
+      `${organization.slug}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`
+    const phone = data.phone ?? organization.phone
+
     return await this.channelProvider.connect({
-      instanceName: data.name,
-      number: data.number,
+      instanceName,
+      number: phone,
     })
   }
 }

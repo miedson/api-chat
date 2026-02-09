@@ -1,9 +1,6 @@
 import { Repository } from '@/app/common/interfaces/repository'
 import type { Prisma, PrismaClient } from '@/generated/prisma/client'
-import {
-  type CreateOrganizationDto,
-  createOrganizationSchema,
-} from '../schemas/organization.schema'
+import type { CreateOrganizationDto } from '../schemas/organization.schema'
 
 type CreateOrganizationWithChatwoodIdDto = CreateOrganizationDto & {
   chatwootAccountId: number
@@ -15,18 +12,18 @@ export class OrganizationRepository extends Repository<
   async create({
     name,
     document,
+    phone,
     domain,
     status,
     supportEmail,
     chatwootAccountId,
   }: CreateOrganizationWithChatwoodIdDto) {
-    const data = createOrganizationSchema.parse({ name, document })
-
     return await this.dataSource.organization.create({
       data: {
-        name: data.name,
-        document: data.document,
-        slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+        name,
+        document,
+        phone,
+        slug: name.toLowerCase().replace(/\s+/g, '-'),
         domain,
         status: status ?? 'active',
         supportEmail,

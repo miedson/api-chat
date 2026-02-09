@@ -3,7 +3,7 @@ import type { ChannelProvider } from '../interfaces/channel.provider'
 
 export type CreateInstanceEvolutionApiRequest = {
   instanceName: string
-  number: number
+  number: string
   qrcode?: boolean
   integration?: 'WHATSAPP-BAILEYS' | 'WHATSAPP-BUSINESS' | 'EVOLUTION'
 }

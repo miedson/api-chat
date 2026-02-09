@@ -3,8 +3,12 @@ import type { UseCase } from '@/app/common/interfaces/usecase'
 import type { OrganizationRepository } from '@/app/organization/repositories/organization.repository'
 import type { FastifyBaseLogger } from 'fastify/types/logger'
 import type { UserRepository } from '../../users/repositories/user.repository'
-import type { CreateAccountDto } from '../../users/schemas/user.schema'
+import {
+  createUserSchema,
+  type CreateAccountDto,
+} from '../../users/schemas/user.schema'
 import type { ChatwootService } from '../../users/services/chatwood.service'
+import { createOrganizationSchema } from '@/app/organization/schemas/organization.schema'
 
 export class CreateAccount implements UseCase<CreateAccountDto, void> {
   constructor(
@@ -22,13 +26,17 @@ export class CreateAccount implements UseCase<CreateAccountDto, void> {
     password,
     organization,
   }: CreateAccountDto): Promise<void> {
+    createOrganizationSchema.parse({ organization })
+
     this.logger.info(
       `start create user account: ${JSON.stringify({ name, displayName, email, password, organization })}`,
     )
+
     const userExists = await this.userRepository.findByEmail(email)
     const organizationExists = await this.organizationRepository.findByDocument(
       organization.document,
     )
+
     if (userExists) {
       throw new Error('email already used')
     }
@@ -56,6 +64,15 @@ export class CreateAccount implements UseCase<CreateAccountDto, void> {
     const organizationCreated = await this.organizationRepository.create({
       ...organization,
       chatwootAccountId: accountId,
+    })
+
+    createUserSchema.parse({
+      name,
+      displayName,
+      email,
+      password,
+      role,
+      organizationId: organizationCreated.id,
     })
 
     const passwordHash = await this.passwordHasher.hash(password)

@@ -1,7 +1,9 @@
 import z from 'zod'
+import { prisma } from '@/lib/prisma'
 import type { FastifyTypeInstance } from '@/types'
 import { FetchHttpClientAdapter } from '../common/adapters/fetch-httpclient.adapter'
 import { errorSchema } from '../common/schemas/error.schema'
+import { OrganizationRepository } from '../organization/repositories/organization.repository'
 import { createWhatsAppChannelSchema } from './schemas/create-whatsapp-channel.schema'
 import { EvolutionApiChannelProvider } from './services/evolutionapi-channel.provider'
 import { CreateWhatsAppChannel } from './usecases/create-whatsapp-channel.usecase'
@@ -29,10 +31,11 @@ export async function channelRoutes(app: FastifyTypeInstance) {
     },
     async (request, reply) => {
       try {
-        const createWhatsAppChannel = new CreateWhatsAppChannel(channelProvider)
+        const organizationRepository = new OrganizationRepository(prisma)
+        const createWhatsAppChannel = new CreateWhatsAppChannel(channelProvider, organizationRepository)
         const {
           qrcode: { base64 },
-        } = await createWhatsAppChannel.execute(request.body)
+        } = await createWhatsAppChannel.execute({...request.body, userUUID: request.user.sub})
         reply.status(201).send({ base64 })
       } catch (error) {
         reply.status(500).send({ message: (error as Error).message })
