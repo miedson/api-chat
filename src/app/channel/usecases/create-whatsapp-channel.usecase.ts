@@ -37,7 +37,9 @@ export class CreateWhatsAppChannel
     const instanceName =
       data.name ??
       `${organization.slug}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`
-    const phone = data.phone ?? organization.phone
+
+    const phone =
+      data.useOrganizationPhone || !data.phone ? organization.phone : data.phone
 
     return await this.channelProvider.connect({
       instanceName,
