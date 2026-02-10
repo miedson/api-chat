@@ -23,7 +23,7 @@ export class CreateWhatsAppChannel
   ) {}
 
   async execute(
-    input: CreateWhatsAppChannelDto,
+    input: CreateWhatsAppChannelDto & { userUUID: string },
   ): Promise<CreateInstanceEvolutionApiResponse> {
     const data = createWhatsAppChannelSchema.parse(input)
 

@@ -9,7 +9,6 @@ export const whatsAppChannelSchema = z.object({
 export type whatsAppChannelDto = z.infer<typeof whatsAppChannelSchema>
 
 export const createWhatsAppChannelSchema = whatsAppChannelSchema.extend({
-  userUUID: z.uuid(),
   useOrganizationPhone: z.boolean().default(true),
 })
 
