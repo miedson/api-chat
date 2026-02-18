@@ -2,9 +2,9 @@ import { Repository } from '@/app/common/interfaces/repository'
 import type { Prisma, PrismaClient } from '@/generated/prisma/client'
 import type { CreateOrganizationDto } from '../schemas/organization.schema'
 
-type CreateOrganizationWithChatwoodIdDto = CreateOrganizationDto & {
-  chatwootAccountId: number
-}
+// type CreateOrganizationWithChatwoodIdDto = CreateOrganizationDto & {
+//   chatwootAccountId: number
+// }
 
 export class OrganizationRepository extends Repository<
   PrismaClient | Prisma.TransactionClient
@@ -16,8 +16,8 @@ export class OrganizationRepository extends Repository<
     domain,
     status,
     supportEmail,
-    chatwootAccountId,
-  }: CreateOrganizationWithChatwoodIdDto) {
+    // chatwootAccountId,
+  }: CreateOrganizationDto) {
     return await this.dataSource.organization.create({
       data: {
         name,
@@ -27,7 +27,7 @@ export class OrganizationRepository extends Repository<
         domain,
         status: status ?? 'active',
         supportEmail,
-        chatwootAccountId,
+        // chatwootAccountId,
       },
     })
   }

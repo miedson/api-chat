@@ -5,12 +5,12 @@ import type {
   Roles,
   User,
 } from '@/generated/prisma/client'
-import type { UserDto } from '../schemas/user.schema'
+import type { CreateUserDto, UserDto } from '../schemas/user.schema'
 
-type CreateUserWithChatWootUserId = UserDto & {
-  chatwootUserId: number
-  role: Roles
-}
+// type CreateUserWithChatWootUserId = UserDto & {
+//   chatwootUserId: number
+//   role: Roles
+// }
 
 type UserWithOrganization = Prisma.UserGetPayload<{
   include: { organization: true }
@@ -20,22 +20,24 @@ export class UserRepository extends Repository<
   PrismaClient | Prisma.TransactionClient
 > {
   async create({
-    name,
-    displayName,
+    // name,
+    // displayName,
+    // uuid,
     email,
-    passwordHash,
-    organization: { id: organizationId },
-    chatwootUserId,
+    // passwordHash,
+    // organization: { id: organizationId },
+    // chatwootUserId,
     role,
-  }: CreateUserWithChatWootUserId) {
+    organizationId,
+  }: CreateUserDto) {
     const user = await this.dataSource.user.create({
       data: {
-        name,
-        displayName,
+        // name,
+        // displayName,
         email,
-        passwordHash,
+        // passwordHash,
         organizationId,
-        chatwootUserId,
+        // chatwootUserId,
         role,
       },
     })
@@ -68,20 +70,20 @@ export class UserRepository extends Repository<
     })
   }
 
-  async updatePasswordHash(
-    tokenHashId: string,
-    userId: number,
-    passwordUserHash: string,
-  ): Promise<void> {
-    this.dataSource.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash: passwordUserHash,
-      },
-    })
-    this.dataSource.passwordResetToken.update({
-      where: { id: tokenHashId },
-      data: { useAt: new Date() },
-    })
-  }
+  // async updatePasswordHash(
+  //   tokenHashId: string,
+  //   userId: number,
+  //   passwordUserHash: string,
+  // ): Promise<void> {
+  //   this.dataSource.user.update({
+  //     where: { id: userId },
+  //     data: {
+  //       passwordHash: passwordUserHash,
+  //     },
+  //   })
+  //   this.dataSource.passwordResetToken.update({
+  //     where: { id: tokenHashId },
+  //     data: { useAt: new Date() },
+  //   })
+  // }
 }

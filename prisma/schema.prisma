@@ -17,20 +17,40 @@ enum Roles {
   administrator
 }
 
+enum ConversationStatus {
+  open
+  pending
+  resolved
+}
+
+enum MessageSenderType {
+  agent
+  contact
+  system
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
 model User {
   id                  Int                  @id @default(autoincrement())
   public_id           String               @default(uuid())
-  name                String
-  displayName         String?              @map("display_name")
+  // name                String
+  // displayName         String?              @map("display_name")
   email               String               @unique
-  passwordHash        String               @map("password_hash")
+  // passwordHash        String               @map("password_hash")
   organizationId      Int                  @map("organization_id")
-  chatwootUserId      Int?                 @map("chatwoot_user_id")
+  // chatwootUserId      Int?                 @map("chatwoot_user_id")
   role                Roles                @default(agent)
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
   organization        Organization         @relation(fields: [organizationId], references: [id])
-  passwordResetTokens PasswordResetToken[]
+  // passwordResetTokens PasswordResetToken[]
+  assignedConversations Conversation[]     @relation("ConversationAssignee")
+  sentMessages        Message[]
+  conversationReads   ConversationRead[]
 
   @@map("users")
 }
@@ -45,21 +65,108 @@ model Organization {
   supportEmail      String?  @map("support_email")
   status            Status   @default(active)
   slug              String   @unique
-  chatwootAccountId Int?     @map("chatwoot_account_id")
+  // chatwootAccountId Int?     @map("chatwoot_account_id")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   users             User[]
+  inboxes           Inbox[]
+  contacts          Contact[]
+  conversations     Conversation[]
+  messages          Message[]
 
   @@map("organizations")
 }
-model PasswordResetToken {
-  id        String    @id @default(uuid())
-  userId    Int       @map("user_id")
-  tokenHash String    @unique
-  expiresAt DateTime  @map("expires_at")
-  useAt     DateTime? @map("use_at")
-  user      User      @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-  @@map("password_reset_token")
+model Inbox {
+  id             Int            @id @default(autoincrement())
+  organizationId Int            @map("organization_id")
+  name           String
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  conversations  Conversation[]
+
+  @@index([organizationId])
+  @@map("inboxes")
 }
+
+model Contact {
+  id             Int            @id @default(autoincrement())
+  organizationId Int            @map("organization_id")
+  name           String
+  externalId     String?        @map("external_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  conversations  Conversation[]
+
+  @@index([organizationId])
+  @@map("contacts")
+}
+
+model Conversation {
+  id             Int                 @id @default(autoincrement())
+  organizationId Int                 @map("organization_id")
+  inboxId        Int                 @map("inbox_id")
+  contactId      Int                 @map("contact_id")
+  status         ConversationStatus  @default(open)
+  assigneeId     Int?                @map("assignee_id")
+  lastMessageAt  DateTime?           @map("last_message_at")
+  lastActivityAt DateTime            @default(now()) @map("last_activity_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  inbox          Inbox               @relation(fields: [inboxId], references: [id])
+  contact        Contact             @relation(fields: [contactId], references: [id])
+  assignee       User?               @relation("ConversationAssignee", fields: [assigneeId], references: [id])
+  messages       Message[]
+  reads          ConversationRead[]
+
+  @@index([organizationId, inboxId, status, lastActivityAt(sort: Desc)])
+  @@index([assigneeId])
+  @@index([contactId])
+  @@map("conversations")
+}
+
+model Message {
+  id             Int               @id @default(autoincrement())
+  organizationId Int               @map("organization_id")
+  conversationId Int               @map("conversation_id")
+  senderType     MessageSenderType @map("sender_type")
+  senderId       Int?              @map("sender_id")
+  direction      MessageDirection
+  content        String
+  createdAt      DateTime          @default(now()) @map("created_at")
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  conversation   Conversation      @relation(fields: [conversationId], references: [id])
+  sender         User?             @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([organizationId, conversationId])
+  @@map("messages")
+}
+
+model ConversationRead {
+  conversationId    Int          @map("conversation_id")
+  userId            Int          @map("user_id")
+  lastSeenMessageId Int?         @map("last_seen_message_id")
+  lastSeenAt        DateTime     @default(now()) @map("last_seen_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  conversation      Conversation @relation(fields: [conversationId], references: [id])
+  user              User         @relation(fields: [userId], references: [id])
+
+  @@id([conversationId, userId])
+  @@index([userId, updatedAt])
+  @@map("conversation_reads")
+}
+// model PasswordResetToken {
+//   id        String    @id @default(uuid())
+//   userId    Int       @map("user_id")
+//   tokenHash String    @unique
+//   expiresAt DateTime  @map("expires_at")
+//   useAt     DateTime? @map("use_at")
+//   user      User      @relation(fields: [userId], references: [id])
+
+//   @@index([userId])
+//   @@map("password_reset_token")
+// }
