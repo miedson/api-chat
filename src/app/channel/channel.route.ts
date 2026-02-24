@@ -13,7 +13,7 @@ const channelProvider = new EvolutionApiChannelProvider(httpClient)
 
 export async function channelRoutes(app: FastifyTypeInstance) {
   app.post(
-    'whatsapp',
+    '/whatsapp',
     {
       schema: {
         tags: ['channel'],
@@ -32,10 +32,16 @@ export async function channelRoutes(app: FastifyTypeInstance) {
     async (request, reply) => {
       try {
         const organizationRepository = new OrganizationRepository(prisma)
-        const createWhatsAppChannel = new CreateWhatsAppChannel(channelProvider, organizationRepository)
+        const createWhatsAppChannel = new CreateWhatsAppChannel(
+          channelProvider,
+          organizationRepository,
+        )
         const {
           qrcode: { base64 },
-        } = await createWhatsAppChannel.execute({...request.body, userUUID: request.user.sub})
+        } = await createWhatsAppChannel.execute({
+          ...request.body,
+          userUUID: request.user.sub,
+        })
         reply.status(201).send({ base64 })
       } catch (error) {
         reply.status(500).send({ message: (error as Error).message })

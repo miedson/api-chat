@@ -1,22 +1,16 @@
-import type { PasswordHasher } from '@/app/common/interfaces/password-hasher'
 import type { UseCase } from '@/app/common/interfaces/usecase'
 import type { OrganizationRepository } from '@/app/organization/repositories/organization.repository'
-import type { FastifyBaseLogger } from 'fastify/types/logger'
 import type { UserRepository } from '../../users/repositories/user.repository'
-import {
-  createUserSchema,
-  type CreateAccountDto,
-} from '../../users/schemas/user.schema'
-import type { ChatwootService } from '../../users/services/chatwood.service'
+import { type CreateAccountDto } from '../../users/schemas/user.schema'
 import { createOrganizationSchema } from '@/app/organization/schemas/organization.schema'
+import type { AuthApiService } from '../services/auth-api.service'
+import type { RegisterResponseDto } from '../schemas/register-response.schema'
 
-export class CreateAccount implements UseCase<CreateAccountDto, void> {
+export class CreateAccount implements UseCase<CreateAccountDto, RegisterResponseDto> {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly organizationRepository: OrganizationRepository,
-    private readonly passwordHasher: PasswordHasher,
-    private readonly chatwootService: ChatwootService,
-    private readonly logger: FastifyBaseLogger,
+    private readonly authApiService: AuthApiService,
   ) {}
 
   async execute({
@@ -25,12 +19,8 @@ export class CreateAccount implements UseCase<CreateAccountDto, void> {
     email,
     password,
     organization,
-  }: CreateAccountDto): Promise<void> {
+  }: CreateAccountDto): Promise<RegisterResponseDto> {
     createOrganizationSchema.parse({ organization })
-
-    this.logger.info(
-      `start create user account: ${JSON.stringify({ name, displayName, email, password, organization })}`,
-    )
 
     const userExists = await this.userRepository.findByEmail(email)
     const organizationExists = await this.organizationRepository.findByDocument(
@@ -44,53 +34,25 @@ export class CreateAccount implements UseCase<CreateAccountDto, void> {
       throw new Error('document alredy used')
     }
 
-    this.logger.info(`call chatwoot service`)
-    const { accountId, userId, role } =
-      await this.chatwootService.provisionAccountWithUser(
-        {
-          name,
-          displayName,
-          email,
-          password,
-          organization,
-        },
-        'administrator',
-      )
-
-    this.logger.info(
-      `account and user created in chatwoot: ${JSON.stringify({ accountId, userId, role })}`,
-    )
-
-    const organizationCreated = await this.organizationRepository.create({
-      ...organization,
-      chatwootAccountId: accountId,
-    })
-
-    createUserSchema.parse({
+    const registerResponse = await this.authApiService.register({
       name,
       displayName,
       email,
       password,
-      role,
-      organizationId: organizationCreated.id,
+      role: 'application',
     })
 
-    const passwordHash = await this.passwordHasher.hash(password)
+    const organizationCreated =
+      await this.organizationRepository.create(organization)
 
     await this.userRepository.create({
       name,
       displayName,
       email,
-      password,
-      chatwootUserId: userId,
-      role,
-      organization: {
-        ...organizationCreated,
-        uuid: organizationCreated.publicId,
-      },
-      passwordHash,
+      role: 'administrator',
+      organizationId: organizationCreated.id,
     })
 
-    this.logger.info(`finished create user account`)
+    return registerResponse
   }
 }

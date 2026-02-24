@@ -9,20 +9,25 @@ export class ListUsers implements UseCase<void, UserResponseDto[]> {
     const users = await this.userRepository.findAll()
 
     return users.map((user) => {
-      const {
-        id: Id,
-        organization: org,
-        organizationId,
-        passwordHash,
-        public_id,
-        ...userData
-      } = user
-      const { id, ...organization } = user.organization
-      return {
-        ...userData,
+      const organization = {
+        ...user.organization,
+        uuid: user.organization.publicId,
+      } as Record<string, unknown>
+
+      delete organization.id
+      delete organization.publicId
+
+      const response = {
+        ...user,
         uuid: user.public_id,
-        organization: { ...organization, uuid: organization.publicId },
-      }
+        organization,
+      } as Record<string, unknown>
+
+      delete response.id
+      delete response.public_id
+      delete response.organizationId
+
+      return response as UserResponseDto
     })
   }
 }

@@ -18,48 +18,33 @@ enum Roles {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
-  public_id           String               @default(uuid())
-  name                String
-  displayName         String?              @map("display_name")
-  email               String               @unique
-  passwordHash        String               @map("password_hash")
-  organizationId      Int                  @map("organization_id")
-  chatwootUserId      Int?                 @map("chatwoot_user_id")
-  role                Roles                @default(agent)
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  organization        Organization         @relation(fields: [organizationId], references: [id])
-  passwordResetTokens PasswordResetToken[]
+  id             Int          @id @default(autoincrement())
+  public_id      String       @default(uuid())
+  name           String
+  displayName    String?      @map("display_name")
+  email          String       @unique
+  organizationId Int          @map("organization_id")
+  role           Roles        @default(agent)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@map("users")
 }
 
 model Organization {
-  id                Int      @id @default(autoincrement())
-  publicId          String   @default(uuid()) @map("public_id")
-  name              String
-  document          String   @unique
-  phone             String   @map("phone")
-  domain            String?
-  supportEmail      String?  @map("support_email")
-  status            Status   @default(active)
-  slug              String   @unique
-  chatwootAccountId Int?     @map("chatwoot_account_id")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  users             User[]
+  id           Int      @id @default(autoincrement())
+  publicId     String   @default(uuid()) @map("public_id")
+  name         String
+  document     String   @unique
+  phone        String   @map("phone")
+  domain       String?
+  supportEmail String?  @map("support_email")
+  status       Status   @default(active)
+  slug         String   @unique
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  users        User[]
 
   @@map("organizations")
-}
-model PasswordResetToken {
-  id        String    @id @default(uuid())
-  userId    Int       @map("user_id")
-  tokenHash String    @unique
-  expiresAt DateTime  @map("expires_at")
-  useAt     DateTime? @map("use_at")
-  user      User      @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@map("password_reset_token")
 }

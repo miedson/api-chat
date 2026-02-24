@@ -1,32 +1,24 @@
-import { BcryptPasswordHasher } from '@/app/auth/adapters/bcrypt-password-hasher.adapter'
 import { authRequestSchema } from '@/app/auth/schemas/auth-request.schema'
 import { authResponseSchema } from '@/app/auth/schemas/auth-response.schema'
+import {
+  verifyEmailAndGrantAccessSchema,
+  verifyEmailSchema,
+} from '@/app/auth/schemas/verify-email.schema'
+import { registerResponseSchema } from '@/app/auth/schemas/register-response.schema'
 import { errorSchema } from '@/app/common/schemas/error.schema'
 import { UserRepository } from '@/app/users/repositories/user.repository'
 import { prisma } from '@/lib/prisma'
 import type { FastifyTypeInstance } from '@/types'
 import { z } from 'zod'
 import { FetchHttpClientAdapter } from '../common/adapters/fetch-httpclient.adapter'
-import { MailerSendMailSenderAdapter } from '../common/adapters/mailersend-mail-sender.adapter'
 import { OrganizationRepository } from '../organization/repositories/organization.repository'
 import { createAccountSchema } from '../users/schemas/user.schema'
-import { ChatwootService } from '../users/services/chatwood.service'
-import { Sha256TokenHasherAdapater } from './adapters/sha256-token-hasher.adapter'
-import { PasswordResetTokenRepository } from './repositorories/password-reset-token.repository'
-import { forgotPasswordSchema } from './schemas/forgot-password.schema'
-import { resetPasswordSchema } from './schemas/reset-password.schema'
 import { AuthenticateUser } from './usecases/authenticate-user.usecase'
 import { CreateAccount } from './usecases/create-account.usecase'
-import { ForgotUserPassword } from './usecases/forgot-user-password.usecase'
-import { ResetPassword } from './usecases/reset-password.usecase'
+import { AuthApiService } from './services/auth-api.service'
 
-const userRepository = new UserRepository(prisma)
-const passwordResetTokenRepository = new PasswordResetTokenRepository(prisma)
-const hasher = new BcryptPasswordHasher()
-const mailSender = new MailerSendMailSenderAdapter()
-const tokenHasher = new Sha256TokenHasherAdapater()
 const fetchHttpClientAdapter = new FetchHttpClientAdapter()
-const chatwootService = new ChatwootService(fetchHttpClientAdapter)
+const authApiService = new AuthApiService(fetchHttpClientAdapter)
 
 export async function authRoutes(app: FastifyTypeInstance) {
   app.post(
@@ -38,7 +30,8 @@ export async function authRoutes(app: FastifyTypeInstance) {
         summary: 'Criar conta',
         body: createAccountSchema,
         response: {
-          201: z.undefined().describe('User created'),
+          201: registerResponseSchema,
+          202: registerResponseSchema,
           500: errorSchema,
         },
       },
@@ -46,18 +39,16 @@ export async function authRoutes(app: FastifyTypeInstance) {
     async (request, reply) => {
       try {
         const data = request.body
-        await prisma.$transaction(async (transaction) => {
+        const result = await prisma.$transaction(async (transaction) => {
           const userRepository = new UserRepository(transaction)
           const organizationRepository = new OrganizationRepository(transaction)
           const createAccount = new CreateAccount(
             userRepository,
             organizationRepository,
-            hasher,
-            chatwootService,
-            request.log,
+            authApiService,
           )
 
-          await createAccount.execute({
+          return await createAccount.execute({
             ...data,
             organization: {
               ...data.organization,
@@ -68,12 +59,19 @@ export async function authRoutes(app: FastifyTypeInstance) {
             },
           })
         })
-        reply.status(201).send()
+
+        if (result.status === 'verification_required') {
+          reply.status(202).send(result)
+          return
+        }
+
+        reply.status(201).send(result)
       } catch (error) {
         reply.status(500).send({ message: (error as Error).message })
       }
     },
   )
+
   app.post(
     '/login',
     {
@@ -90,16 +88,16 @@ export async function authRoutes(app: FastifyTypeInstance) {
     },
     async (request, reply) => {
       try {
-        const { email, password } = request.body
-        const { jwt } = request
-        const authenticateUser = new AuthenticateUser(
-          userRepository,
-          hasher,
-          jwt,
-        )
-        const result = await authenticateUser.execute({ email, password })
+        const authenticateUser = new AuthenticateUser(authApiService)
+        const result = await authenticateUser.execute(request.body)
+
         reply
           .setCookie('access_token', result.access_token, {
+            path: '/',
+            httpOnly: true,
+            secure: true,
+          })
+          .setCookie('refresh_token', result.refresh_token, {
             path: '/',
             httpOnly: true,
             secure: true,
@@ -111,14 +109,15 @@ export async function authRoutes(app: FastifyTypeInstance) {
       }
     },
   )
+
   app.post(
-    '/forgot-password',
+    '/verify-email',
     {
       config: { public: true },
       schema: {
         tags: ['auth'],
-        summary: 'Recuperar senha',
-        body: forgotPasswordSchema,
+        summary: 'Verificar e-mail na API Auth',
+        body: verifyEmailSchema,
         response: {
           204: z.undefined(),
           500: errorSchema,
@@ -127,51 +126,49 @@ export async function authRoutes(app: FastifyTypeInstance) {
     },
     async (request, reply) => {
       try {
-        const { email } = request.body
-        const forgotUserPassword = new ForgotUserPassword(
-          userRepository,
-          mailSender,
-          tokenHasher,
-          passwordResetTokenRepository,
-        )
-        await forgotUserPassword.execute({ email })
+        await authApiService.verifyEmail(request.body)
         reply.code(204).send()
       } catch (error) {
         reply.status(500).send({ message: (error as Error).message })
       }
     },
   )
+
   app.post(
-    '/reset-password',
+    '/verify-email-and-grant-access',
     {
       config: { public: true },
       schema: {
         tags: ['auth'],
-        summary: 'Criar nova senha',
-        body: resetPasswordSchema,
+        summary: 'Verificar e-mail e conceder acesso da aplicação na API Auth',
+        body: verifyEmailAndGrantAccessSchema,
         response: {
-          201: z.undefined(),
+          204: z.undefined(),
+          401: errorSchema,
           500: errorSchema,
         },
       },
     },
     async (request, reply) => {
       try {
-        const { token, password } = request.body
-        await prisma.$transaction(async (transaction) => {
-          const userRepository = new UserRepository(transaction)
-          const passwordResetTokenRepository = new PasswordResetTokenRepository(
-            transaction,
-          )
-          const resetPassword = new ResetPassword(
-            tokenHasher,
-            passwordResetTokenRepository,
-            userRepository,
-            hasher,
-          )
-          await resetPassword.execute({ token, password })
+        const provisioningSecret = process.env.AUTH_API_PROVISIONING_SECRET
+
+        if (!provisioningSecret) {
+          throw new Error('AUTH_API_PROVISIONING_SECRET is required')
+        }
+
+        if (request.body.provisioningSecret !== provisioningSecret) {
+          reply.status(401).send({ message: 'Unauthorized' })
+          return
+        }
+
+        await authApiService.verifyEmail(request.body)
+        await authApiService.grantApplicationAccess({
+          userPublicId: request.body.userPublicId,
+          role: request.body.role,
         })
-        reply.code(201).send()
+
+        reply.code(204).send()
       } catch (error) {
         reply.status(500).send({ message: (error as Error).message })
       }

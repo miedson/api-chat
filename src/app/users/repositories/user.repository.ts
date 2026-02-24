@@ -5,10 +5,12 @@ import type {
   Roles,
   User,
 } from '@/generated/prisma/client'
-import type { UserDto } from '../schemas/user.schema'
 
-type CreateUserWithChatWootUserId = UserDto & {
-  chatwootUserId: number
+type CreateUserDto = {
+  name: string
+  displayName?: string | null
+  email: string
+  organizationId: number
   role: Roles
 }
 
@@ -23,19 +25,15 @@ export class UserRepository extends Repository<
     name,
     displayName,
     email,
-    passwordHash,
-    organization: { id: organizationId },
-    chatwootUserId,
+    organizationId,
     role,
-  }: CreateUserWithChatWootUserId) {
+  }: CreateUserDto) {
     const user = await this.dataSource.user.create({
       data: {
         name,
         displayName,
         email,
-        passwordHash,
         organizationId,
-        chatwootUserId,
         role,
       },
     })
@@ -65,23 +63,6 @@ export class UserRepository extends Repository<
   async findByUUID(uuid: string): Promise<User | null> {
     return await this.dataSource.user.findFirst({
       where: { public_id: uuid },
-    })
-  }
-
-  async updatePasswordHash(
-    tokenHashId: string,
-    userId: number,
-    passwordUserHash: string,
-  ): Promise<void> {
-    this.dataSource.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash: passwordUserHash,
-      },
-    })
-    this.dataSource.passwordResetToken.update({
-      where: { id: tokenHashId },
-      data: { useAt: new Date() },
     })
   }
 }
