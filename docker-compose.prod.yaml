@@ -1,10 +1,10 @@
 services:
-  ia-api:
+  api-chat:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ia-api-core:latest
-    container_name: ia-api
+    image: api-chat:latest
+    container_name: api-chat
     restart: unless-stopped
     ports:
       - "3000:3000"
