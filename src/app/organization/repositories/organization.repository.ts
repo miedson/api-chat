@@ -49,4 +49,14 @@ export class OrganizationRepository extends Repository<
       },
     })
   }
+
+  async findByUserEmail(email: string) {
+    return await this.dataSource.organization.findFirst({
+      where: {
+        users: {
+          some: { email },
+        },
+      },
+    })
+  }
 }

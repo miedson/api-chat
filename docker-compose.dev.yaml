@@ -14,6 +14,7 @@ services:
       corepack prepare pnpm@latest --activate &&
       pnpm install &&
       pnpm exec prisma generate &&
+      pnpm exec prisma migrate deploy &&
       pnpm run dev
       "
 

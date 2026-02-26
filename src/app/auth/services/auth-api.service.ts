@@ -1,4 +1,4 @@
-import type { HttpClient } from '@pp/common/interfaces/http-client'
+import type { HttpClient } from '@/app/common/interfaces/http-client'
 
 type RegisterDto = {
   name: string
@@ -11,6 +11,14 @@ type RegisterDto = {
 type AuthenticateDto = {
   email: string
   password: string
+}
+
+type RefreshSessionDto = {
+  refreshToken: string
+}
+
+type LogoutSessionDto = {
+  refreshToken: string
 }
 
 type VerifyEmailDto = {
@@ -89,6 +97,32 @@ export class AuthApiService {
     )
 
     return data
+  }
+
+  async refreshSession(input: RefreshSessionDto): Promise<AuthResponse> {
+    const { data } = await this.httpClient.post<AuthResponse>(
+      `${this.apiUrl}/api/v1/refresh-token`,
+      {
+        refresh_token: input.refreshToken,
+      },
+      {
+        headers: this.headers,
+      },
+    )
+
+    return data
+  }
+
+  async logoutSession(input: LogoutSessionDto): Promise<void> {
+    await this.httpClient.post(
+      `${this.apiUrl}/api/v1/logout`,
+      {
+        refresh_token: input.refreshToken,
+      },
+      {
+        headers: this.headers,
+      },
+    )
   }
 
   async verifyEmail(input: VerifyEmailDto): Promise<void> {

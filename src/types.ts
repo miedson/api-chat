@@ -7,6 +7,7 @@ import {
   RawServerDefault,
 } from 'fastify'
 import { ZodTypeProvider } from 'fastify-type-provider-zod'
+import type { Server as SocketIOServer } from 'socket.io'
 
 export type FastifyTypeInstance = FastifyInstance<
   RawServerDefault,
@@ -19,6 +20,10 @@ export type FastifyTypeInstance = FastifyInstance<
 declare module 'fastify' {
   export interface FastifyRequest {
     jwt: JWT
+  }
+
+  export interface FastifyInstance {
+    io: SocketIOServer
   }
 
   export interface FastifyContextConfig {

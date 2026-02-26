@@ -13,6 +13,7 @@ import {
 } from 'fastify-type-provider-zod'
 import { validateAuthenticateDecorate } from './app/auth/decorates/validate-authenticate.decorate'
 import { errorHandler } from './app/common/error-handler'
+import { registerConversationSocket } from './app/conversation/conversation.socket'
 import { routes } from './routes'
 
 const app = fastify({
@@ -79,6 +80,7 @@ app.register(ScalarApiReference, {
 })
 
 app.addHook('preHandler', validateAuthenticateDecorate)
+registerConversationSocket(app)
 
 for (const route of routes) {
   app.register(route.routes, { prefix: route.prefix })

@@ -5,6 +5,7 @@ import {
   verifyEmailSchema,
 } from '@/app/auth/schemas/verify-email.schema'
 import { registerResponseSchema } from '@/app/auth/schemas/register-response.schema'
+import { refreshSessionResponseSchema } from '@/app/auth/schemas/refresh-session.schema'
 import { errorSchema } from '@/app/common/schemas/error.schema'
 import { UserRepository } from '@/app/users/repositories/user.repository'
 import { prisma } from '@/lib/prisma'
@@ -19,6 +20,18 @@ import { AuthApiService } from './services/auth-api.service'
 
 const fetchHttpClientAdapter = new FetchHttpClientAdapter()
 const authApiService = new AuthApiService(fetchHttpClientAdapter)
+
+function buildAuthCookieOptions(maxAgeSeconds: number) {
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  return {
+    path: '/',
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax' as const,
+    maxAge: maxAgeSeconds,
+  }
+}
 
 export async function authRoutes(app: FastifyTypeInstance) {
   app.post(
@@ -90,20 +103,113 @@ export async function authRoutes(app: FastifyTypeInstance) {
       try {
         const authenticateUser = new AuthenticateUser(authApiService)
         const result = await authenticateUser.execute(request.body)
+        const refreshTokenMaxAgeSeconds = Number(
+          process.env.REFRESH_TOKEN_MAX_AGE_SECONDS ?? 60 * 60 * 24 * 30,
+        )
 
         reply
-          .setCookie('access_token', result.access_token, {
-            path: '/',
-            httpOnly: true,
-            secure: true,
-          })
-          .setCookie('refresh_token', result.refresh_token, {
-            path: '/',
-            httpOnly: true,
-            secure: true,
-          })
+          .setCookie(
+            'access_token',
+            result.access_token,
+            buildAuthCookieOptions(result.expires_in),
+          )
+          .setCookie(
+            'refresh_token',
+            result.refresh_token,
+            buildAuthCookieOptions(refreshTokenMaxAgeSeconds),
+          )
           .code(201)
           .send(result)
+      } catch (error) {
+        reply.status(500).send({ message: (error as Error).message })
+      }
+    },
+  )
+
+  app.post(
+    '/refresh',
+    {
+      config: { public: true },
+      schema: {
+        tags: ['auth'],
+        summary: 'Renovar sessão com refresh token',
+        response: {
+          201: refreshSessionResponseSchema.describe('Session refreshed'),
+          401: errorSchema,
+          500: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const refreshToken = request.cookies.refresh_token
+
+        if (!refreshToken) {
+          reply.status(401).send({ message: 'Unauthorized' })
+          return
+        }
+
+        const result = await authApiService.refreshSession({ refreshToken })
+        const refreshTokenMaxAgeSeconds = Number(
+          process.env.REFRESH_TOKEN_MAX_AGE_SECONDS ?? 60 * 60 * 24 * 30,
+        )
+
+        reply
+          .setCookie(
+            'access_token',
+            result.access_token,
+            buildAuthCookieOptions(result.expires_in),
+          )
+          .setCookie(
+            'refresh_token',
+            result.refresh_token,
+            buildAuthCookieOptions(refreshTokenMaxAgeSeconds),
+          )
+          .code(201)
+          .send(result)
+      } catch (error) {
+        reply.status(401).send({ message: 'Unauthorized' })
+      }
+    },
+  )
+
+  app.post(
+    '/logout',
+    {
+      config: { public: true },
+      schema: {
+        tags: ['auth'],
+        summary: 'Encerrar sessão',
+        response: {
+          204: z.undefined(),
+          500: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const refreshToken = request.cookies.refresh_token
+
+        if (refreshToken) {
+          await authApiService.logoutSession({ refreshToken })
+        }
+
+        const isProduction = process.env.NODE_ENV === 'production'
+        reply
+          .clearCookie('access_token', {
+            path: '/',
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'lax',
+          })
+          .clearCookie('refresh_token', {
+            path: '/',
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'lax',
+          })
+          .code(204)
+          .send()
       } catch (error) {
         reply.status(500).send({ message: (error as Error).message })
       }

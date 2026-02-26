@@ -22,6 +22,7 @@ API de atendimento multi-canal com autenticação delegada para a `api-auth`.
 pnpm install
 cp .env.development .env
 pnpm prisma generate
+pnpm prisma migrate deploy
 pnpm dev
 ```
 
@@ -38,6 +39,7 @@ pnpm start
 
 - `APP_PORT`
 - `APP_HOST`
+- `APP_PUBLIC_URL` (usado para registrar webhook de canais)
 - `JWT_SECRET`
 - `COOKIE_SECRET`
 - `DATABASE_URL`
@@ -47,10 +49,15 @@ pnpm start
 - `SUPPORT_EMAIL_DEFAULT`
 - `EVO_API_URL`
 - `EVO_API_TOKEN`
+- `EVO_WEBHOOK_SECRET` (segredo esperado em `x-webhook-secret` no webhook)
+- `WHATSAPP_WEBHOOK_PUBLIC_URL` (URL pública base para registrar webhook na Evolution)
 
 ### Integração com api-auth
 
 - `AUTH_API_URL`
+- `AUTH_API_JWKS_URL` (default: `${AUTH_API_URL}/.well-known/jwks.json`)
+- `AUTH_API_EXPECTED_AUDIENCE` (default: `api-chat`)
+- `AUTH_API_EXPECTED_ISSUER` (default: `AUTH_API_URL`)
 - `AUTH_API_APPLICATION_SLUG`
 - `AUTH_API_APPLICATION_SECRET`
 - `AUTH_API_ROOT_EMAIL`
@@ -203,7 +210,29 @@ Resposta: `201`.
 
 ### Channel (`/channel`)
 
-- `POST /channel/whatsapp`
+- `GET /channel`
+- `POST /channel/whatsapp/connect`
+- `POST /channel/:connectionId/webhook/sync`
+- `POST /channel/whatsapp/webhook/evolution` (publica; requer `x-webhook-secret`)
+
+### Conversations (`/conversations`)
+
+- `GET /conversations`
+- `POST /conversations`
+- `GET /conversations/:conversationId/messages`
+- `POST /conversations/:conversationId/messages`
+
+### Socket.IO
+
+Servidor Socket.IO no mesmo host/porta da API.
+
+Eventos:
+
+- `conversation:join` (cliente -> servidor)
+- `conversation:leave` (cliente -> servidor)
+- `conversation:message:send` (cliente -> servidor)
+- `conversation:new` (servidor -> cliente)
+- `conversation:message:new` (servidor -> cliente)
 
 ## Documentação OpenAPI
 

@@ -17,34 +17,152 @@ enum Roles {
   administrator
 }
 
+enum ConversationStatus {
+  open
+  pending
+  resolved
+}
+
+enum MessageType {
+  incoming
+  outgoing
+  internal
+}
+
+enum ChannelKind {
+  whatsapp
+}
+
+enum ChannelProviderType {
+  evolution
+  whatsapp_cloud
+}
+
+enum ChannelConnectionStatus {
+  pending_qr
+  connected
+  disconnected
+  failed
+}
+
 model User {
-  id             Int          @id @default(autoincrement())
-  public_id      String       @default(uuid())
-  name           String
-  displayName    String?      @map("display_name")
-  email          String       @unique
-  organizationId Int          @map("organization_id")
-  role           Roles        @default(agent)
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  id                       Int                       @id @default(autoincrement())
+  public_id                String                    @default(uuid())
+  name                     String
+  displayName              String?                   @map("display_name")
+  email                    String                    @unique
+  organizationId           Int                       @map("organization_id")
+  role                     Roles                     @default(agent)
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  updatedAt                DateTime                  @updatedAt @map("updated_at")
+  organization             Organization              @relation(fields: [organizationId], references: [id])
+  createdConversations     Conversation[]            @relation("conversation_created_by")
+  assignedConversations    Conversation[]            @relation("conversation_assigned_to")
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
 
   @@map("users")
 }
 
 model Organization {
-  id           Int      @id @default(autoincrement())
-  publicId     String   @default(uuid()) @map("public_id")
-  name         String
-  document     String   @unique
-  phone        String   @map("phone")
-  domain       String?
-  supportEmail String?  @map("support_email")
-  status       Status   @default(active)
-  slug         String   @unique
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  users        User[]
+  id                 Int                 @id @default(autoincrement())
+  publicId           String              @default(uuid()) @map("public_id")
+  name               String
+  document           String              @unique
+  phone              String              @map("phone")
+  domain             String?
+  supportEmail       String?             @map("support_email")
+  status             Status              @default(active)
+  slug               String              @unique
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  users              User[]
+  conversations      Conversation[]
+  channelConnections ChannelConnection[]
 
   @@map("organizations")
+}
+
+model Conversation {
+  id                 Int                       @id @default(autoincrement())
+  publicId           String                    @default(uuid()) @map("public_id")
+  organizationId     Int                       @map("organization_id")
+  subject            String?
+  status             ConversationStatus        @default(open)
+  channel            String?
+  createdById        Int?                      @map("created_by_id")
+  assignedToId       Int?                      @map("assigned_to_id")
+  channelConnectionId Int?                     @map("channel_connection_id")
+  externalContactId  String?                   @map("external_contact_id")
+  externalContactName String?                  @map("external_contact_name")
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+  organization       Organization              @relation(fields: [organizationId], references: [id])
+  createdBy          User?                     @relation("conversation_created_by", fields: [createdById], references: [id])
+  assignedTo         User?                     @relation("conversation_assigned_to", fields: [assignedToId], references: [id], onDelete: SetNull)
+  channelConnection  ChannelConnection?        @relation(fields: [channelConnectionId], references: [id], onDelete: SetNull)
+  participants       ConversationParticipant[]
+  messages           Message[]
+
+  @@index([organizationId, status])
+  @@index([channelConnectionId, externalContactId])
+  @@index([organizationId, assignedToId, status])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             Int          @id @default(autoincrement())
+  conversationId Int          @map("conversation_id")
+  userId         Int          @map("user_id")
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id                Int          @id @default(autoincrement())
+  publicId          String       @default(uuid()) @map("public_id")
+  conversationId    Int          @map("conversation_id")
+  senderId          Int?         @map("sender_id")
+  content           String
+  type              MessageType  @default(internal)
+  externalMessageId String?      @map("external_message_id")
+  externalAuthor    String?      @map("external_author")
+  readAt            DateTime?    @map("read_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender            User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([externalMessageId])
+  @@map("messages")
+}
+
+model ChannelConnection {
+  id                  Int                     @id @default(autoincrement())
+  publicId            String                  @default(uuid()) @map("public_id")
+  organizationId      Int                     @map("organization_id")
+  kind                ChannelKind             @default(whatsapp)
+  provider            ChannelProviderType
+  name                String
+  phone               String
+  providerExternalId  String?                 @map("provider_external_id")
+  providerInstanceKey String?                 @map("provider_instance_key")
+  status              ChannelConnectionStatus @default(pending_qr)
+  qrCodeBase64        String?                 @map("qr_code_base64")
+  qrCodeExpiresAt     DateTime?               @map("qr_code_expires_at")
+  webhookSecret       String                  @map("webhook_secret")
+  metadata            Json?
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversations       Conversation[]
+
+  @@unique([provider, providerInstanceKey])
+  @@index([organizationId, kind, status])
+  @@map("channel_connections")
 }
