@@ -13,8 +13,8 @@ services:
     mem_limit: 700m
     depends_on:
       - postgres
-      - qdrant
-      - embedding
+      # - qdrant
+      # - embedding
 
   postgres:
     image: postgres:16
@@ -29,23 +29,23 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  embedding:
-    build: ./embedding-service
-    container_name: embedding
-    volumes:
-      - hf_cache:/tmp/hf_cache
-    mem_limit: 450m
+  # embedding:
+  #   build: ./embedding-service
+  #   container_name: embedding
+  #   volumes:
+  #     - hf_cache:/tmp/hf_cache
+  #   mem_limit: 450m
 
-  qdrant:
-    image: qdrant/qdrant
-    container_name: qdrant
-    restart: unless-stopped
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
+  # qdrant:
+  #   image: qdrant/qdrant
+  #   container_name: qdrant
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6333:6333"
+  #   volumes:
+  #     - qdrant_data:/qdrant/storage
 
 volumes:
   postgres_data:
-  qdrant_data:
-  hf_cache:
+  # qdrant_data:
+  # hf_cache:
