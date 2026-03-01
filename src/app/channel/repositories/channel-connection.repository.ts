@@ -1,5 +1,6 @@
 import { Repository } from '@/app/common/interfaces/repository'
 import type {
+  ChannelKind,
   ChannelConnectionStatus,
   ChannelProviderType,
   Prisma,
@@ -11,6 +12,7 @@ export class ChannelConnectionRepository extends Repository<
 > {
   async create(input: {
     organizationId: number
+    kind?: ChannelKind
     provider: ChannelProviderType
     name: string
     phone: string
@@ -20,6 +22,7 @@ export class ChannelConnectionRepository extends Repository<
     return this.dataSource.channelConnection.create({
       data: {
         organizationId: input.organizationId,
+        kind: input.kind,
         provider: input.provider,
         name: input.name,
         phone: input.phone,

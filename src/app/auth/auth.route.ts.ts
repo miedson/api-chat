@@ -101,7 +101,11 @@ export async function authRoutes(app: FastifyTypeInstance) {
     },
     async (request, reply) => {
       try {
-        const authenticateUser = new AuthenticateUser(authApiService)
+        const userRepository = new UserRepository(prisma)
+        const authenticateUser = new AuthenticateUser(
+          authApiService,
+          userRepository,
+        )
         const result = await authenticateUser.execute(request.body)
         const refreshTokenMaxAgeSeconds = Number(
           process.env.REFRESH_TOKEN_MAX_AGE_SECONDS ?? 60 * 60 * 24 * 30,

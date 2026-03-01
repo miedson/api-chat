@@ -6,7 +6,7 @@ import { WhatsAppCloudChannelProvider } from './whatsapp-cloud-channel.provider'
 
 const httpClient = new FetchHttpClientAdapter()
 
-const providers: Record<ChannelProviderType, WhatsAppChannelProvider> = {
+const providers: Partial<Record<ChannelProviderType, WhatsAppChannelProvider>> = {
   [ChannelProviderType.evolution]: new EvolutionApiChannelProvider(httpClient),
   [ChannelProviderType.whatsapp_cloud]: new WhatsAppCloudChannelProvider(),
 }

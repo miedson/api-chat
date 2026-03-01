@@ -51,6 +51,11 @@ pnpm start
 - `EVO_API_TOKEN`
 - `EVO_WEBHOOK_SECRET` (segredo esperado em `x-webhook-secret` no webhook)
 - `WHATSAPP_WEBHOOK_PUBLIC_URL` (URL pública base para registrar webhook na Evolution)
+- `META_APP_ID`
+- `META_APP_SECRET`
+- `META_GRAPH_API_URL` (opcional, default `https://graph.facebook.com/v23.0`)
+- `INSTAGRAM_OAUTH_REDIRECT_URI` (URL pública do frontend callback, ex.: `https://app.seudominio.com/integracoes/instagram/callback`)
+- `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` (token de validação do webhook no Meta)
 
 ### Integração com api-auth
 
@@ -212,6 +217,11 @@ Resposta: `201`.
 
 - `GET /channel`
 - `POST /channel/whatsapp/connect`
+- `POST /channel/instagram/connect`
+- `GET /channel/instagram/oauth/url`
+- `GET /channel/instagram/oauth/exchange`
+- `GET /channel/instagram/webhook` (verificação Meta)
+- `POST /channel/instagram/webhook`
 - `POST /channel/:connectionId/webhook/sync`
 - `POST /channel/whatsapp/webhook/evolution` (publica; requer `x-webhook-secret`)
 

@@ -31,11 +31,13 @@ enum MessageType {
 
 enum ChannelKind {
   whatsapp
+  instagram
 }
 
 enum ChannelProviderType {
   evolution
   whatsapp_cloud
+  instagram_graph
 }
 
 enum ChannelConnectionStatus {
@@ -95,6 +97,7 @@ model Conversation {
   channelConnectionId Int?                     @map("channel_connection_id")
   externalContactId  String?                   @map("external_contact_id")
   externalContactName String?                  @map("external_contact_name")
+  externalThreadId   String?                   @map("external_thread_id")
   createdAt          DateTime                  @default(now()) @map("created_at")
   updatedAt          DateTime                  @updatedAt @map("updated_at")
   organization       Organization              @relation(fields: [organizationId], references: [id])

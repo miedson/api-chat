@@ -33,13 +33,8 @@ export class FetchHttpClientAdapter implements HttpClient {
     const responseBody = isJson ? await response.json() : await response.text()
 
     if (!response.ok) {
-      throw new Error(
-        `HTTP ${response.status} - ${
-          typeof responseBody === 'string'
-            ? responseBody
-            : JSON.stringify(responseBody)
-        }`,
-      )
+      const error = responseBody as unknown as { message: string }
+      throw new Error(error.message)
     }
 
     return {

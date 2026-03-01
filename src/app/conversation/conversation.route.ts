@@ -1,4 +1,5 @@
 import { errorSchema } from '@/app/common/schemas/error.schema'
+import { getInstagramProvider } from '@/app/channel/services/instagram-provider.factory'
 import { getWhatsAppProvider } from '@/app/channel/services/whatsapp-provider.factory'
 import { UserRepository } from '@/app/users/repositories/user.repository'
 import { ChannelProviderType, ConversationStatus, MessageType } from '@/generated/prisma/enums'
@@ -489,13 +490,17 @@ export async function conversationRoutes(app: FastifyTypeInstance) {
           select: {
             id: true,
             publicId: true,
+            channel: true,
             status: true,
             assignedToId: true,
             externalContactId: true,
+            externalThreadId: true,
             channelConnection: {
               select: {
                 provider: true,
                 providerInstanceKey: true,
+                providerExternalId: true,
+                metadata: true,
               },
             },
           },
@@ -516,22 +521,67 @@ export async function conversationRoutes(app: FastifyTypeInstance) {
 
         let externalMessageId: string | undefined
 
-        if (
-          (request.body.type ?? MessageType.outgoing) === MessageType.outgoing &&
-          conversation.externalContactId &&
-          conversation.channelConnection?.provider &&
-          conversation.channelConnection.providerInstanceKey
-        ) {
-          const provider = getWhatsAppProvider(
-            conversation.channelConnection.provider as ChannelProviderType,
-          )
-          const sentMessage = await provider.sendMessage({
-            instanceKey: conversation.channelConnection.providerInstanceKey,
-            to: conversation.externalContactId,
-            text: request.body.content,
-          })
+        if ((request.body.type ?? MessageType.outgoing) === MessageType.outgoing) {
+          if (
+            conversation.channelConnection?.provider === ChannelProviderType.instagram_graph
+          ) {
+            const metadata = (conversation.channelConnection.metadata ?? {}) as Record<
+              string,
+              unknown
+            >
+            const accessToken =
+              typeof metadata.accessToken === 'string' ? metadata.accessToken : undefined
+            const instagramAccountId =
+              typeof metadata.instagramAccountId === 'string'
+                ? metadata.instagramAccountId
+                : conversation.channelConnection.providerExternalId ?? undefined
 
-          externalMessageId = sentMessage.externalMessageId
+            if (!accessToken || !instagramAccountId) {
+              throw new Error('Instagram channel is missing metadata for sending messages')
+            }
+
+            const provider = getInstagramProvider(ChannelProviderType.instagram_graph)
+
+            if (conversation.channel === 'instagram_comment') {
+              if (!conversation.externalThreadId) {
+                throw new Error('Comment thread id is missing for Instagram comment reply')
+              }
+
+              const sentMessage = await provider.replyToComment({
+                commentId: conversation.externalThreadId,
+                accessToken,
+                text: request.body.content,
+              })
+              externalMessageId = sentMessage.externalMessageId
+            } else {
+              if (!conversation.externalContactId) {
+                throw new Error('Recipient id is missing for Instagram direct message')
+              }
+
+              const sentMessage = await provider.sendDirectMessage({
+                instagramAccountId,
+                accessToken,
+                recipientInstagramScopedId: conversation.externalContactId,
+                text: request.body.content,
+              })
+              externalMessageId = sentMessage.externalMessageId
+            }
+          } else if (
+            conversation.externalContactId &&
+            conversation.channelConnection?.provider &&
+            conversation.channelConnection.providerInstanceKey
+          ) {
+            const provider = getWhatsAppProvider(
+              conversation.channelConnection.provider as ChannelProviderType,
+            )
+            const sentMessage = await provider.sendMessage({
+              instanceKey: conversation.channelConnection.providerInstanceKey,
+              to: conversation.externalContactId,
+              text: request.body.content,
+            })
+
+            externalMessageId = sentMessage.externalMessageId
+          }
         }
 
         const message = await prisma.message.create({
