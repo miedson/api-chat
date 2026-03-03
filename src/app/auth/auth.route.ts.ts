@@ -20,6 +20,17 @@ import { AuthApiService } from './services/auth-api.service'
 
 const fetchHttpClientAdapter = new FetchHttpClientAdapter()
 const authApiService = new AuthApiService(fetchHttpClientAdapter)
+const resendVerificationSchema = z.object({
+  email: z.email(),
+  password: z.string().min(1),
+})
+const forgotPasswordSchema = z.object({
+  email: z.email(),
+})
+const resetPasswordSchema = z.object({
+  token: z.string().min(10),
+  password: z.string().min(8),
+})
 
 function buildAuthCookieOptions(maxAgeSeconds: number) {
   const isProduction = process.env.NODE_ENV === 'production'
@@ -238,6 +249,93 @@ export async function authRoutes(app: FastifyTypeInstance) {
       try {
         await authApiService.verifyEmail(request.body)
         reply.code(204).send()
+      } catch (error) {
+        reply.status(500).send({ message: (error as Error).message })
+      }
+    },
+  )
+
+  app.post(
+    '/forgot-password',
+    {
+      config: { public: true },
+      schema: {
+        tags: ['auth'],
+        summary: 'Solicitar redefinicao de senha',
+        body: forgotPasswordSchema,
+        response: {
+          204: z.undefined(),
+          500: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        await authApiService.forgotPassword(request.body)
+        reply.code(204).send()
+      } catch (error) {
+        reply.status(500).send({ message: (error as Error).message })
+      }
+    },
+  )
+
+  app.post(
+    '/reset-password',
+    {
+      config: { public: true },
+      schema: {
+        tags: ['auth'],
+        summary: 'Redefinir senha',
+        body: resetPasswordSchema,
+        response: {
+          204: z.undefined(),
+          500: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        await authApiService.resetPassword(request.body)
+        reply.code(204).send()
+      } catch (error) {
+        reply.status(500).send({ message: (error as Error).message })
+      }
+    },
+  )
+
+  app.post(
+    '/resend-verification',
+    {
+      config: { public: true },
+      schema: {
+        tags: ['auth'],
+        summary: 'Reenviar codigo de verificacao por e-mail',
+        body: resendVerificationSchema,
+        response: {
+          200: registerResponseSchema,
+          500: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const userRepository = new UserRepository(prisma)
+        const user = await userRepository.findByEmail(request.body.email)
+
+        if (!user) {
+          reply.status(500).send({ message: 'User not found' })
+          return
+        }
+
+        const result = await authApiService.register({
+          name: user.name,
+          displayName: user.displayName,
+          email: user.email,
+          password: request.body.password,
+          role: 'application',
+        })
+
+        reply.status(200).send(result)
       } catch (error) {
         reply.status(500).send({ message: (error as Error).message })
       }

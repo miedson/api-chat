@@ -26,6 +26,15 @@ type VerifyEmailDto = {
   code: string
 }
 
+type ForgotPasswordDto = {
+  email: string
+}
+
+type ResetPasswordDto = {
+  token: string
+  password: string
+}
+
 type GrantApplicationAccessDto = {
   userPublicId: string
   role?: 'user' | 'admin'
@@ -131,6 +140,31 @@ export class AuthApiService {
       {
         email: input.email,
         code: input.code,
+      },
+      {
+        headers: this.headers,
+      },
+    )
+  }
+
+  async forgotPassword(input: ForgotPasswordDto): Promise<void> {
+    await this.httpClient.post(
+      `${this.apiUrl}/api/v1/forgot-password`,
+      {
+        email: input.email,
+      },
+      {
+        headers: this.headers,
+      },
+    )
+  }
+
+  async resetPassword(input: ResetPasswordDto): Promise<void> {
+    await this.httpClient.post(
+      `${this.apiUrl}/api/v1/reset-password`,
+      {
+        token: input.token,
+        password: input.password,
       },
       {
         headers: this.headers,
