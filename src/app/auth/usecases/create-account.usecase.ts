@@ -20,7 +20,7 @@ export class CreateAccount implements UseCase<CreateAccountDto, RegisterResponse
     password,
     organization,
   }: CreateAccountDto): Promise<RegisterResponseDto> {
-    createOrganizationSchema.parse({ organization })
+    createOrganizationSchema.parse(organization)
 
     const userExists = await this.userRepository.findByEmail(email)
     const organizationExists = await this.organizationRepository.findByDocument(
