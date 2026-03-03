@@ -61,6 +61,7 @@ type AuthResponse = {
 type RegisterResponse = {
   status: 'created' | 'verification_required'
   message: string
+  userPublicId: string
 }
 
 export class AuthApiService {
@@ -176,17 +177,14 @@ export class AuthApiService {
     userPublicId,
     role = 'admin',
   }: GrantApplicationAccessDto): Promise<void> {
-    const rootAccessToken = await this.getRootAccessToken()
     const applicationSlug = this.getApplicationSlug()
     const grantPath = `${encodeURIComponent(applicationSlug)}/users/${encodeURIComponent(userPublicId)}`
 
     await this.httpClient.post(
-      `${this.apiUrl}/api/v1/admin/applications/${grantPath}`,
+      `${this.apiUrl}/api/v1/applications/${grantPath}`,
       { role },
       {
-        headers: {
-          Cookie: `access_token=${rootAccessToken}`,
-        },
+        headers: this.headers,
       },
     )
   }
@@ -207,24 +205,4 @@ export class AuthApiService {
     return this.applicationSecret
   }
 
-  private async getRootAccessToken(): Promise<string> {
-    const rootEmail = process.env.AUTH_API_ROOT_EMAIL
-    const rootPassword = process.env.AUTH_API_ROOT_PASSWORD
-
-    if (!rootEmail || !rootPassword) {
-      throw new Error(
-        'AUTH_API_ROOT_EMAIL and AUTH_API_ROOT_PASSWORD are required',
-      )
-    }
-
-    const { data } = await this.httpClient.post<AuthResponse>(
-      `${this.apiUrl}/api/v1/login`,
-      {
-        email: rootEmail,
-        password: rootPassword,
-      },
-    )
-
-    return data.access_token
-  }
 }

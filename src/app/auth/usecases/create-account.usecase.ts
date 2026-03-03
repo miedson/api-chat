@@ -42,6 +42,11 @@ export class CreateAccount implements UseCase<CreateAccountDto, RegisterResponse
       role: 'application',
     })
 
+    await this.authApiService.grantApplicationAccess({
+      userPublicId: registerResponse.userPublicId,
+      role: 'admin',
+    })
+
     const organizationCreated =
       await this.organizationRepository.create(organization)
 
